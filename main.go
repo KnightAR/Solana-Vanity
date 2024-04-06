@@ -32,16 +32,18 @@ func generateWallet(f *os.File) {
 			return
 		}
 		newWallet := solana.NewWallet()
+		publicKey := newWallet.PublicKey()
+		publicKeyString := publicKey.String()
 		for i := 0; i < len(remainingSearches); i++ {
 			currentLookup := remainingSearches[i]
-			if strings.HasPrefix(newWallet.PublicKey().String(), currentLookup) && !shouldStopThreads {
-				firstCharAfterSearchTerm := strings.Split(newWallet.PublicKey().String(), currentLookup)[1][0:1]
+			if strings.HasPrefix(publicKeyString, currentLookup) && !shouldStopThreads {
+				firstCharAfterSearchTerm := strings.Split(publicKeyString, currentLookup)[1][0:1]
 				if firstCharAfterSearchTerm == strings.ToUpper(firstCharAfterSearchTerm) {
-					fmt.Printf("Success! Wallet found: %s\n", newWallet.PublicKey())
+					fmt.Printf("Success! Wallet found: %s\n", publicKey)
 					fmt.Printf("Secret Key: %v\n", newWallet.PrivateKey)
 					fmt.Printf("Attempts required: %d, Time elapsed: %s\n\n", generatedCount+1, time.Since(startTime))
 
-					if _, err := f.WriteString(fmt.Sprintf("%s | %v | Took: %s\n", newWallet.PublicKey(), newWallet.PrivateKey, time.Since(startTime))); err != nil {
+					if _, err := f.WriteString(fmt.Sprintf("%s | %v | Took: %s\n", publicKey, newWallet.PrivateKey, time.Since(startTime))); err != nil {
 						panic(err)
 					}
 
