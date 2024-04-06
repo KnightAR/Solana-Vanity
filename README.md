@@ -18,7 +18,7 @@ This program generates Solana wallets until it finds one that starts with a spec
 
 4. **Navigate to the Program Directory**: Use a terminal (or command prompt) to navigate to the directory containing the program files.
 
-5. **Run the Program**: In the terminal, run the command `go run main.go`. Make sure you're in the directory where `main.go` is located. All found private keys will be written to `solana.log` file in the source dir until all search terms have been found. Depending on the length of the search terms it may take from minutes to hours/days/weeks.
+5. **Run the Program**: In the terminal, run the command `go run main.go`. Make sure you're in the directory where `main.go` is located. All found private keys will be written to `solana_<timestamp>.log` file in the source dir until all search terms have been found. Depending on the length of the search terms it may take from minutes to hours/days/weeks.
 
 ## Example Output
 

@@ -16,7 +16,7 @@ var generatedCount = 0
 var numThreads = 16
 var startTime = time.Now()
 var shouldStopThreads = false
-var logFile = "solana.log"
+var logFile = fmt.Sprintf("solana_%d.log", startTime.Unix())
 var remainingSearches = []string{}
 
 func remove(s []string, index int) ([]string, error) {
