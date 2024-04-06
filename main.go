@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gagliardetto/solana-go"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -60,6 +61,18 @@ func generateWallet(f *os.File) {
 }
 
 func main() {
+	// Get the current GOMAXPROCS value
+	currentValue := runtime.GOMAXPROCS(0)
+	fmt.Printf("Current GOMAXPROCS value: %d\n", currentValue)
+
+	// Set GOMAXPROCS to utilize all available CPU cores
+	maxCores := runtime.NumCPU()
+	fmt.Printf("maxCores value: %d\n", maxCores)
+	newValue := maxCores - 2
+
+	runtime.GOMAXPROCS(newValue)
+	fmt.Printf("Updated GOMAXPROCS value: %d\n", runtime.GOMAXPROCS(0))
+
 	for i := 0; i < len(searchTerms); i++ {
 		remainingSearches = append(remainingSearches, searchTerms[i])
 	}
