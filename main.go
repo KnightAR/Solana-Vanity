@@ -32,9 +32,11 @@ var searchTermsFile = "searchTerms.txt"
 
 var logFile = fmt.Sprintf("logs/solana_%d.log", startTime.Unix())
 var resultsFile = fmt.Sprintf("results/%d.csv", startTime.Unix())
+var resultsNonExactFile = fmt.Sprintf("results/%d_nonexact.csv", startTime.Unix())
 
 var logLock = &sync.Mutex{}
 var resultsLock = &sync.Mutex{}
+var nonExactResultsLock = &sync.Mutex{}
 
 var singleLogInstance *os.File
 
@@ -75,6 +77,29 @@ func getResultsInstance() *csvutil.Table {
 	}
 
 	return singleResultsInstance
+}
+
+var singleNoExactResultsInstance *csvutil.Table
+
+func getNonExactResultsInstance() *csvutil.Table {
+	if singleNoExactResultsInstance == nil {
+		nonExactResultsLock.Lock()
+		defer nonExactResultsLock.Unlock()
+		if singleNoExactResultsInstance == nil {
+			var err error = nil
+			singleNoExactResultsInstance, err = csvutil.Create(resultsNonExactFile)
+			if err != nil {
+				log.Fatalf("could not create %s: %v\n", resultsNonExactFile, err)
+			}
+
+			err = singleNoExactResultsInstance.WriteHeader("term,publickey,privatekey,attempts,time\n")
+			if err != nil {
+				log.Fatalf("error writing header: %v\n", err)
+			}
+		}
+	}
+
+	return singleNoExactResultsInstance
 }
 
 // Read a whole file into the memory and store it as array of lines
@@ -127,8 +152,9 @@ func clean(s []byte) string {
 	return string(s[:j])
 }
 
-func generateWallet(f *os.File) {
+func generateWallet(logFile *os.File) {
 	tbl := getResultsInstance()
+	tblNonExactResults := getNonExactResultsInstance()
 	p := message.NewPrinter(language.English)
 	for {
 		if shouldStopThreads {
@@ -142,24 +168,40 @@ func generateWallet(f *os.File) {
 		for i := 0; i < len(remainingSearches); i++ {
 			currentLookup := remainingSearches[i]
 			currentLookupLOWER := remainingSearchesLOWER[i]
-			if (strings.HasPrefix(publicKeyStringLOWER, currentLookupLOWER) || strings.HasPrefix(publicKeyString, currentLookup)) && !shouldStopThreads {
+			isLowerMatch := strings.HasPrefix(publicKeyStringLOWER, currentLookupLOWER)
+			isExactMatch := strings.HasPrefix(publicKeyString, currentLookup)
+			if (isLowerMatch || isExactMatch) && !shouldStopThreads {
 				privateKeyString := newWallet.PrivateKey.String()
 				since := time.Since(startTime)
 				foundTerm := publicKeyString[0:len(currentLookup)]
-				fmt.Printf("Success! Wallet found: %s\n", publicKey)
+				if isExactMatch {
+					fmt.Printf("Exact Match: Success! Wallet found: %s\n", publicKey)
+				} else {
+					fmt.Printf("Non-Exact Match: Success! Wallet found: %s\n", publicKey)
+				}
 				fmt.Printf("Secret Key: %v\n", privateKeyString)
 				p.Printf("Attempts required: %d, Time elapsed: %s\n", generatedCount+1, since)
 
-				if _, err := f.WriteString(p.Sprintf("Found: %s | %s | %v | Attempts: %d | Took: %s\n", foundTerm, publicKeyString, privateKeyString, generatedCount+1, since)); err != nil {
-					panic(err)
+				if isExactMatch {
+					if _, err := logFile.WriteString(p.Sprintf("Exact Match Found: %s | %s | %v | Attempts: %d | Took: %s\n", foundTerm, publicKeyString, privateKeyString, generatedCount+1, since)); err != nil {
+						panic(err)
+					}
+
+					err := tbl.WriteRow(foundTerm, publicKeyString, privateKeyString, generatedCount+1, since)
+					if err != nil {
+						log.Fatalf("error writing row %d: %v\n", i, err)
+					}
+				} else {
+					if _, err := logFile.WriteString(p.Sprintf("Non-Exact Match Found: %s | %s | %v | Attempts: %d | Took: %s\n", foundTerm, publicKeyString, privateKeyString, generatedCount+1, since)); err != nil {
+						panic(err)
+					}
+					err := tblNonExactResults.WriteRow(foundTerm, publicKeyString, privateKeyString, generatedCount+1, since)
+					if err != nil {
+						log.Fatalf("error writing row %d: %v\n", i, err)
+					}
 				}
 
-				err := tbl.WriteRow(foundTerm, publicKeyString, privateKeyString, generatedCount+1, since)
-				if err != nil {
-					log.Fatalf("error writing row %d: %v\n", i, err)
-				}
-
-				if strings.HasPrefix(publicKeyString, currentLookup) && !shouldStopThreads {
+				if isExactMatch {
 					//firstCharAfterSearchTerm := strings.Split(publicKeyString, currentLookup)[1][0:1]
 					//if firstCharAfterSearchTerm == strings.ToUpper(firstCharAfterSearchTerm) {
 					/*					fmt.Printf("Success! Wallet found: %s\n", publicKey)
@@ -208,6 +250,7 @@ func generateWallet(f *os.File) {
 		if generatedCount%1000000 == 0 {
 			p.Printf("Status: %d wallets generated in %s | Prefixes Remaining: %d\n", generatedCount, time.Since(startTime), len(remainingSearches))
 			tbl.Writer.Flush()
+			tblNonExactResults.Writer.Flush()
 		}
 
 		/*if generatedCount%10000000 == 0 {
@@ -323,8 +366,11 @@ func main() {
 	}
 	fmt.Printf("Starting...\n\n")
 
-	tbl := getResultsInstance()
-	defer tbl.Close()
+	tblResults := getResultsInstance()
+	defer tblResults.Close()
+
+	tblNonExactResults := getNonExactResultsInstance()
+	defer tblNonExactResults.Close()
 
 	for i := 0; i < numThreads; i++ {
 		go generateWallet(f)
@@ -351,6 +397,10 @@ func init() {
 		tbl := getResultsInstance()
 		tbl.Writer.Flush()
 		tbl.Close()
+
+		tblNoneExact := getNonExactResultsInstance()
+		tblNoneExact.Writer.Flush()
+		tblNoneExact.Close()
 
 		p := message.NewPrinter(language.English)
 		f := getLogInstance()
