@@ -23,7 +23,7 @@ import (
 var searchTerms = [...]string{}
 
 var generatedCount = 0
-var numThreads = 16
+var numThreads = 14
 var startTime = time.Now()
 var shouldStopThreads = false
 var remainingSearches = []string{}
@@ -138,10 +138,11 @@ func generateWallet(f *os.File) {
 		newWallet := solana.NewWallet()
 		publicKey := newWallet.PublicKey()
 		publicKeyString := publicKey.String()
+		publicKeyStringLOWER := strings.ToLower(publicKey.String())
 		for i := 0; i < len(remainingSearches); i++ {
 			currentLookup := remainingSearches[i]
 			currentLookupLOWER := remainingSearchesLOWER[i]
-			if (strings.HasPrefix(publicKeyString, currentLookupLOWER) || strings.HasPrefix(publicKeyString, currentLookup)) && !shouldStopThreads {
+			if (strings.HasPrefix(publicKeyStringLOWER, currentLookupLOWER) || strings.HasPrefix(publicKeyString, currentLookup)) && !shouldStopThreads {
 				privateKeyString := newWallet.PrivateKey.String()
 				since := time.Since(startTime)
 				foundTerm := publicKeyString[0:len(currentLookup)]
