@@ -1,3 +1,6 @@
 .idea
 solana.log
 solana_*.log
+searches/*
+logs/*
+results/*
